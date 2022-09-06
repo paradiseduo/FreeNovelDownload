@@ -4,6 +4,7 @@ import math
 import getopt
 import requests
 import sys
+import signal
 from requests.utils import requote_uri
 
 
@@ -18,12 +19,36 @@ def printUse():
     ''')
 
 
+def handle_SIGINT(signum, frame):
+    exit(-1)
+
+
 def remove_upprintable_chars(s):
     """移除所有不可见字符"""
     return ''.join(x for x in s if x.isprintable())
 
 
+def sendRequest(client, url, proxys):
+    if len(proxys) > 0:
+        proxy = str(random.choice(proxys)).lower()
+        if proxy.startswith('https://'):
+            client.proxies.update({'https': proxy})
+        if proxy.startswith('http://'):
+            client.proxies.update({'http': proxy})
+        if proxy.startswith('socks5://'):
+            client.proxies.update({'socks5': proxy})
+    try:
+        r = client.get(url, timeout=5)
+        r.encoding = 'utf-8'
+        return r.text
+    except requests.exceptions.RequestException as e:
+        if len(proxys) > 0:
+            proxys.remove(proxy)
+        return sendRequest(client, url, proxys)
+
+
 def main(argv):
+    signal.signal(signal.SIGINT, handle_SIGINT)
     name = ''
     proxyFile = ''
     try:
@@ -66,11 +91,10 @@ def main(argv):
     saveDic = {}
     searchURL = f'https://souxs.leeyegy.com/search.aspx?key={name}&siteid=app2'
     index = 0
-    for i in range(0, 100):
+    for i in range(0, 10):
         searchURL = requote_uri(f'{searchURL}&page={i}')
-        res = client.get(searchURL)
-        res.encoding = 'utf-8'
-        jsonData = json.loads(res.text)
+        res = sendRequest(client, searchURL, proxys)
+        jsonData = json.loads(res)
         datas = jsonData['data']
         if len(datas) == 0:
             break
@@ -84,9 +108,8 @@ def main(argv):
     sort = info['sort']
     id = info['id']
     baseurl = f'https://downbakxs.apptuxing.com/BookFiles/Html/{str(sort)}/{id}'
-    res = client.get(baseurl)
-    res.encoding = 'utf-8'
-    jsonData = json.loads(remove_upprintable_chars(res.text.replace(',]', ']').replace(',}', '}')))
+    res = sendRequest(client, baseurl, proxys)
+    jsonData = json.loads(remove_upprintable_chars(res.replace(',]', ']').replace(',}', '}')))
     bookName = jsonData['data']['name']
     bookList = jsonData['data']['list']
     with open(bookName, 'a') as f:
@@ -95,17 +118,10 @@ def main(argv):
             f.write('\n\n' + remove_upprintable_chars(ccName) + '\n')
             ccList = item['list']
             for page in ccList:
-                if len(proxys) > 0:
-                    proxy = str(random.choice(proxys)).lower()
-                    if proxy.startswith('https://'):
-                        client.proxies.update({'https': proxy})
-                    if proxy.startswith('http://'):
-                        client.proxies.update({'http': proxy})
-                    if proxy.startswith('socks5://'):
-                        client.proxies.update({'socks5': proxy})
-                res1 = client.get(baseurl + '/' + str(page['id']) + '.html')
-                res1.encoding = 'utf-8'
-                jsonData2 = json.loads(res1.text[1:])
+                res1 = sendRequest(client, baseurl + '/' + str(page['id']) + '.html', proxys)
+                if res1 == "":
+                    res1 = sendRequest(client, baseurl + '/' + str(page['id']) + '.html', proxys)
+                jsonData2 = json.loads(res1[1:])
                 capName = page['name']
                 content = jsonData2['data']['content'].replace('\r\n　　', '∑').replace('\n', '').replace('　　', '')
                 f.write('\n\n' + remove_upprintable_chars(capName) + '\n')
