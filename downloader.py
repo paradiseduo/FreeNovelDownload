@@ -5,6 +5,7 @@ import getopt
 import requests
 import sys
 import signal
+import re
 from requests.utils import requote_uri
 
 
@@ -26,6 +27,21 @@ def handle_SIGINT(signum, frame):
 def remove_upprintable_chars(s):
     """移除所有不可见字符"""
     return ''.join(x for x in s if x.isprintable())
+
+
+def remove(str, num):
+    return str[:num] + str[num + 1:]
+
+
+def json_loads(data_str):
+    try:
+        result = json.loads(data_str)
+        return result
+    except Exception as e:
+        error_index = re.findall(r"char (\d+)\)", str(e))
+        if error_index:
+            newStr2 = remove(data_str, int(error_index[0]))
+            return json_loads(newStr2)
 
 
 def sendRequest(client, url, proxys):
@@ -94,12 +110,13 @@ def main(argv):
     for i in range(0, 10):
         searchURL = requote_uri(f'{searchURL}&page={i}')
         res = sendRequest(client, searchURL, proxys)
-        jsonData = json.loads(res)
+        jsonData = json_loads(res)
         datas = jsonData['data']
         if len(datas) == 0:
             break
         for item in datas:
-            saveDic[str(index)] = {'name': item['Name'], 'id': item['Id'], 'sort': math.ceil(float(item['Id'])/1000.0)}
+            saveDic[str(index)] = {'name': item['Name'], 'id': item['Id'],
+                                   'sort': math.ceil(float(item['Id']) / 1000.0)}
             print(index, item['Name'], item['Author'])
             index += 1
 
@@ -109,9 +126,10 @@ def main(argv):
     id = info['id']
     baseurl = f'https://downbakxs.apptuxing.com/BookFiles/Html/{str(sort)}/{id}'
     res = sendRequest(client, baseurl, proxys)
-    jsonData = json.loads(remove_upprintable_chars(res.replace(',]', ']').replace(',}', '}')))
+    jsonData = json_loads(remove_upprintable_chars(res.replace(',]', ']').replace(',}', '}')))
     bookName = jsonData['data']['name']
     bookList = jsonData['data']['list']
+
     with open(bookName, 'a') as f:
         for item in bookList:
             ccName = item['name']
@@ -121,13 +139,13 @@ def main(argv):
                 res1 = sendRequest(client, baseurl + '/' + str(page['id']) + '.html', proxys)
                 if res1 == "":
                     res1 = sendRequest(client, baseurl + '/' + str(page['id']) + '.html', proxys)
-                jsonData2 = json.loads(res1[1:])
+                jsonData2 = json_loads(res1[1:])
                 capName = page['name']
-                content = jsonData2['data']['content'].replace('\r\n　　', '∑').replace('\n', '').replace('　　', '')
+                content = jsonData2['data']['content'].replace('\r\n', '∑').replace('\n', '')
                 f.write('\n\n' + remove_upprintable_chars(capName) + '\n')
                 f.write(remove_upprintable_chars(content).replace('∑', '\r\n　　'))
                 print(capName)
 
 
 if __name__ == '__main__':
-        main(sys.argv[1:])
+    main(sys.argv[1:])
