@@ -15,6 +15,8 @@ https://github.com/cyubuchen/Free_Proxy_Website
 
 https://free-proxy-list.net/anonymous-proxy.html
 
+https://github.com/jhao104/proxy_pool
+
 建议挂HTTP的代理。
 ```
     Usage:      
