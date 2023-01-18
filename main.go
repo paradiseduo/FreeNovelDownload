@@ -96,7 +96,8 @@ func main() {
 							return
 						}
 						start := strings.Index(curlResult, "{")
-						err2 := json.Unmarshal([]byte(curlResult[start:]), &content)
+						end := strings.LastIndexAny(curlResult, "}") + 1
+						err2 := json.Unmarshal([]byte(curlResult[start:end]), &content)
 						if err2 != nil {
 							fmt.Println("JSON解析失败", err2)
 							break
